@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 TV Pro | 24/7 Esports Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-crosshairs"></i> CS2<span>TV</span>
+            </div>
+            <nav>
+                <button class="nav-btn active" onclick="switchTab('tv-hub')" id="btn-tv-hub">
+                    <i class="fa-solid fa-tv"></i> Live TV
+                </button>
+                <button class="nav-btn" onclick="switchTab('matches-hub')" id="btn-matches-hub">
+                    <i class="fa-solid fa-calendar-days"></i> Lịch Đấu
+                </button>
+            </nav>
+            <div class="status-indicator">
+                <span class="pulse"></span> Hệ thống Online
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <section id="tv-hub" class="tab-content active">
+                <div class="header-actions">
+                    <h1 id="tv-title"><i class="fa-solid fa-satellite-dish"></i> Đang kết nối tín hiệu...</h1>
+                    <button class="cinema-btn" onclick="toggleCinemaMode()">
+                        <i class="fa-solid fa-expand"></i> Cinema Mode
+                    </button>
+                </div>
+                
+                <div class="player-wrapper" id="player-wrapper">
+                    <div class="loader" id="player-loader"></div>
+                    <div id="video-player"></div>
+                </div>
+                
+                <div class="channel-info">
+                    <h3><i class="fa-solid fa-circle-info"></i> Thông tin luồng phát</h3>
+                    <p>Hệ thống tự động dò tìm và phát các luồng CS2 chất lượng cao từ ESL, BLAST hoặc Highlight YouTube.</p>
+                </div>
+            </section>
+
+            <section id="matches-hub" class="tab-content">
+                <h1><i class="fa-solid fa-trophy"></i> Giải đấu & Kết quả</h1>
+                <div class="matches-grid" id="matches-list">
+                    </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
