@@ -1,65 +1,75 @@
-// 1. Dán Token của bạn vào đây
-const PANDASCORE_TOKEN = 'SPIzCftkl59rBdbPlw3G9b2P1whGM2_BI-Hopaic2QfVag1Ai8I';
+// CẤU HÌNH - QUAN TRỌNG
+const PANDASCORE_TOKEN = 'SPIzCftkl59rBdbPlw3G9b2P1whGM2_BI-Hopaic2QfVag1Ai8I'; 
+const YT_PLAYLIST = 'PLhchmqHcwM_0_R_QY7K-H4o7d8-WzJpA_'; // Playlist CS2 Highlights
 
-async function loadMatches() {
-    const matchesContainer = document.getElementById('matches-list');
-    matchesContainer.innerHTML = '<div class="loader"></div>'; // Hiển thị loading khi đang lấy data
+function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+function toggleCinema() {
+    document.getElementById('player-wrapper').classList.toggle('cinema');
+}
+
+async function initCS2TV() {
+    const player = document.getElementById('video-player');
+    const title = document.getElementById('tv-title');
+    const domain = window.location.hostname;
 
     try {
-        // Gọi API lấy các trận đấu CS2 sắp tới (sắp xếp theo thời gian)
-        const response = await fetch(`https://api.pandascore.co/csgo/matches/upcoming?sort=begin_at&per_page=6`, {
-            headers: {
-                'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
-                'Accept': 'application/json'
-            }
-        });
-        
+        // 1. Tìm trận đấu đang LIVE
+        const response = await fetch(`https://api.pandascore.co/csgo/matches/running?token=${PANDASCORE_TOKEN}`);
         const matches = await response.json();
 
-        if (matches.length === 0) {
-            matchesContainer.innerHTML = "<p>Hiện không có giải đấu nào sắp diễn ra.</p>";
-            return;
-        }
-
-        // Render dữ liệu thật ra giao diện
-        matchesContainer.innerHTML = matches.map(match => {
-            const isLive = match.status === 'running';
-            const startTime = new Date(match.begin_at).toLocaleString('vi-VN', {
-                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-            });
+        if (matches && matches.length > 0) {
+            // Lấy trận đầu tiên đang live
+            const match = matches[0];
+            const streamUrl = match.live_url; // Ví dụ: https://twitch.tv/esl_cs
             
-            // Xử lý trường hợp team chưa xác định (TBD)
-            const team1 = match.opponents[0]?.opponent.name || "TBD";
-            const team2 = match.opponents[1]?.opponent.name || "TBD";
-            const team1Logo = match.opponents[0]?.opponent.image_url || 'https://via.placeholder.com/50';
-            const team2Logo = match.opponents[1]?.opponent.image_url || 'https://via.placeholder.com/50';
-
-            return `
-                <div class="match-card">
-                    <div class="match-status ${isLive ? 'live' : 'upcoming'}">
-                        ${isLive ? '🔴 LIVE NOW' : 'Sắp đấu'}
-                    </div>
-                    <div class="teams">
-                        <div class="team">
-                            <img src="${team1Logo}" width="40" style="display:block; margin: 0 auto 10px">
-                            ${team1}
-                        </div>
-                        <div class="vs">VS</div>
-                        <div class="team">
-                            <img src="${team2Logo}" width="40" style="display:block; margin: 0 auto 10px">
-                            ${team2}
-                        </div>
-                    </div>
-                    <div class="match-time">
-                        <i class="fa-solid fa-trophy"></i> ${match.league.name} <br>
-                        <i class="fa-regular fa-clock"></i> ${startTime}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-    } catch (error) {
-        console.error("Lỗi lấy API:", error);
-        matchesContainer.innerHTML = "<p>Không thể kết nối với máy chủ giải đấu.</p>";
+            if (streamUrl && streamUrl.includes('twitch.tv')) {
+                const channel = streamUrl.split('/').pop();
+                title.innerHTML = `🔴 LIVE: ${match.name}`;
+                player.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=${domain}&autoplay=true" allowfullscreen></iframe>`;
+            } else {
+                playFallback(player, title);
+            }
+        } else {
+            playFallback(player, title);
+        }
+    } catch (e) {
+        console.error("API Error", e);
+        playFallback(player, title);
     }
+    loadSchedule();
 }
+
+function playFallback(player, title) {
+    title.innerHTML = `<i class="fa-solid fa-film"></i> Đang phát: CS2 Highlights 24/7`;
+    player.innerHTML = `<iframe src="https://www.youtube.com/embed/videoseries?list=${YT_PLAYLIST}&autoplay=1&mute=1" allow="autoplay" allowfullscreen></iframe>`;
+}
+
+async function loadSchedule() {
+    const list = document.getElementById('matches-list');
+    try {
+        const res = await fetch(`https://api.pandascore.co/csgo/matches/upcoming?token=${PANDASCORE_TOKEN}&per_page=6`);
+        const data = await res.json();
+        
+        list.innerHTML = data.map(m => `
+            <div class="match-card">
+                <div style="font-size:12px; color:#fca311; margin-bottom:10px">${m.league.name}</div>
+                <div style="display:flex; justify-content:space-between; font-weight:bold">
+                    <span>${m.opponents[0]?.opponent.name || 'TBD'}</span>
+                    <span style="color:#555">VS</span>
+                    <span>${m.opponents[1]?.opponent.name || 'TBD'}</span>
+                </div>
+                <div style="margin-top:15px; font-size:13px; color:#888">
+                    ${new Date(m.begin_at).toLocaleString('vi-VN')}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) { list.innerHTML = "Không thể tải lịch thi đấu."; }
+}
+
+window.onload = initCS2TV;
