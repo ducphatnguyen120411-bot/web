@@ -1,106 +1,65 @@
-// ==========================================
-// CẤU HÌNH CƠ BẢN
-// ==========================================
-// Thay GITHUB_USERNAME bằng tên username GitHub của bạn để Twitch Embed hoạt động!
-// Ví dụ: tài khoản github là 'nguyenvana' thì điền 'nguyenvana'
-const GITHUB_USERNAME = 'yourusername'; 
+// 1. Dán Token của bạn vào đây
+const PANDASCORE_TOKEN = 'SPIzCftkl59rBdbPlw3G9b2P1whGM2_BI-Hopaic2QfVag1Ai8I';
 
-// Danh sách các kênh Twitch luôn có giải đấu hoặc phát lại CS2
-const FALLBACK_TWITCH_CHANNELS = ['ESL_CS', 'BLASTPremier', 'ESL_CS_b'];
-// Playlist YouTube Highlight CS2 cực xịn làm phương án dự phòng cuối
-const YOUTUBE_PLAYLIST_ID = 'PLhchmqHcwM_0_R_QY7K-H4o7d8-WzJpA_';
+async function loadMatches() {
+    const matchesContainer = document.getElementById('matches-list');
+    matchesContainer.innerHTML = '<div class="loader"></div>'; // Hiển thị loading khi đang lấy data
 
-// ==========================================
-// ĐIỀU HƯỚNG & UI
-// ==========================================
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    
-    document.getElementById(tabId).classList.add('active');
-    document.getElementById('btn-' + tabId).classList.add('active');
-}
-
-function toggleCinemaMode() {
-    const wrapper = document.getElementById('player-wrapper');
-    wrapper.classList.toggle('cinema');
-    
-    // Thoát cinema mode khi bấm ESC
-    if (wrapper.classList.contains('cinema')) {
-        document.addEventListener('keydown', function escHandler(e) {
-            if (e.key === 'Escape') {
-                wrapper.classList.remove('cinema');
-                document.removeEventListener('keydown', escHandler);
+    try {
+        // Gọi API lấy các trận đấu CS2 sắp tới (sắp xếp theo thời gian)
+        const response = await fetch(`https://api.pandascore.co/csgo/matches/upcoming?sort=begin_at&per_page=6`, {
+            headers: {
+                'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
+                'Accept': 'application/json'
             }
         });
+        
+        const matches = await response.json();
+
+        if (matches.length === 0) {
+            matchesContainer.innerHTML = "<p>Hiện không có giải đấu nào sắp diễn ra.</p>";
+            return;
+        }
+
+        // Render dữ liệu thật ra giao diện
+        matchesContainer.innerHTML = matches.map(match => {
+            const isLive = match.status === 'running';
+            const startTime = new Date(match.begin_at).toLocaleString('vi-VN', {
+                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+            });
+            
+            // Xử lý trường hợp team chưa xác định (TBD)
+            const team1 = match.opponents[0]?.opponent.name || "TBD";
+            const team2 = match.opponents[1]?.opponent.name || "TBD";
+            const team1Logo = match.opponents[0]?.opponent.image_url || 'https://via.placeholder.com/50';
+            const team2Logo = match.opponents[1]?.opponent.image_url || 'https://via.placeholder.com/50';
+
+            return `
+                <div class="match-card">
+                    <div class="match-status ${isLive ? 'live' : 'upcoming'}">
+                        ${isLive ? '🔴 LIVE NOW' : 'Sắp đấu'}
+                    </div>
+                    <div class="teams">
+                        <div class="team">
+                            <img src="${team1Logo}" width="40" style="display:block; margin: 0 auto 10px">
+                            ${team1}
+                        </div>
+                        <div class="vs">VS</div>
+                        <div class="team">
+                            <img src="${team2Logo}" width="40" style="display:block; margin: 0 auto 10px">
+                            ${team2}
+                        </div>
+                    </div>
+                    <div class="match-time">
+                        <i class="fa-solid fa-trophy"></i> ${match.league.name} <br>
+                        <i class="fa-regular fa-clock"></i> ${startTime}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error("Lỗi lấy API:", error);
+        matchesContainer.innerHTML = "<p>Không thể kết nối với máy chủ giải đấu.</p>";
     }
 }
-
-// ==========================================
-// LOGIC AUTO TV (Tự động phát không cần API Key)
-// ==========================================
-function startAutoTV() {
-    const playerContainer = document.getElementById('video-player');
-    const tvTitle = document.getElementById('tv-title');
-    
-    // Chọn ngẫu nhiên 1 kênh Twitch phổ biến
-    const selectedChannel = FALLBACK_TWITCH_CHANNELS[Math.floor(Math.random() * FALLBACK_TWITCH_CHANNELS.length)];
-    const parentDomain = GITHUB_USERNAME !== 'yourusername' ? `${GITHUB_USERNAME}.github.io` : 'localhost';
-
-    tvTitle.innerHTML = `<i class="fa-solid fa-satellite-dish" style="color: #00ff00;"></i> Đang phát: Kênh chuyên nghiệp (TWITCH)`;
-    
-    // Nhúng thẳng iframe của Twitch
-    playerContainer.innerHTML = `
-        <iframe 
-            src="https://player.twitch.tv/?channel=${selectedChannel}&parent=${parentDomain}&autoplay=true&muted=false" 
-            allowfullscreen>
-        </iframe>
-    `;
-
-    // Nếu bạn muốn dùng YouTube làm mặc định thay vì Twitch, dùng đoạn code dưới đây (Bỏ comment đoạn dưới, comment đoạn Twitch trên):
-    /*
-    tvTitle.innerHTML = `<i class="fa-solid fa-play"></i> Đang phát: Highlight CS2 (YOUTUBE)`;
-    playerContainer.innerHTML = `
-        <iframe 
-            src="https://www.youtube.com/embed/videoseries?list=${YOUTUBE_PLAYLIST_ID}&autoplay=1" 
-            allow="autoplay; encrypted-media" 
-            allowfullscreen>
-        </iframe>
-    `;
-    */
-}
-
-// ==========================================
-// DỮ LIỆU LỊCH ĐẤU "PREMIUM MOCK"
-// ==========================================
-function loadMatches() {
-    const matchesContainer = document.getElementById('matches-list');
-    
-    // Dữ liệu mô phỏng cực sát thực tế
-    const mockMatches = [
-        { team1: "FaZe Clan", team2: "NAVI", time: "Đang diễn ra - Map 2: Mirage", isLive: true, score: "1 - 1" },
-        { team1: "Vitality", team2: "G2 Esports", time: "Hôm nay | 22:00 VN", isLive: false, score: "BO3" },
-        { team1: "MOUZ", team2: "Spirit", time: "Ngày mai | 01:30 VN", isLive: false, score: "BO3" },
-        { team1: "Cloud9", team2: "Heroic", time: "Ngày mai | 18:00 VN", isLive: false, score: "BO3" },
-    ];
-
-    matchesContainer.innerHTML = mockMatches.map(match => `
-        <div class="match-card">
-            <div class="match-status ${match.isLive ? 'live' : 'upcoming'}">
-                ${match.isLive ? '🔴 LIVE' : 'Sắp diễn ra'}
-            </div>
-            <div class="teams">
-                <div class="team">${match.team1}</div>
-                <div class="vs">${match.score}</div>
-                <div class="team">${match.team2}</div>
-            </div>
-            <div class="match-time"><i class="fa-regular fa-clock"></i> ${match.time}</div>
-        </div>
-    `).join('');
-}
-
-// Khởi chạy
-window.onload = () => {
-    startAutoTV();
-    loadMatches();
-};
