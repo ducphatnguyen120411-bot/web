@@ -1,108 +1,151 @@
-// ==========================================
-// CẤU HÌNH API - DÁN TOKEN CỦA BẠN VÀO ĐÂY
-// ==========================================
-const PANDASCORE_TOKEN = 'SPIzCftkl59rBdbPlw3G9b2P1whGM2_BI-Hopaic2QfVag1Ai8I';
-const YT_FALLBACK_PLAYLIST = 'PLhchmqHcwM_0_R_QY7K-H4o7d8-WzJpA_';
+/**
+ * CS2 TV - Siêu Script bởi Gemini
+ * Client: fps pro
+ */
 
 // ==========================================
-// HÀM KHỞI TẠO TV (TỰ ĐỘNG FIX LỖI TWITCH)
+// 1. CẤU HÌNH API (Thay mã của bạn vào đây)
 // ==========================================
-async function initAutoTV() {
-    const playerContainer = document.getElementById('video-player');
-    const tvTitle = document.getElementById('tv-title');
+const CONFIG = {
+    PANDASCORE_TOKEN: 'SPIzCftkl59rBdbPlw3G9b2P1whGM2_BI-Hopaic2QfVag1Ai8I',
+    YOUTUBE_API_KEY: 'AIzaSyDXIwX1vDxrF1mYuBmIXe0mUJzTJKvFau4',
+    FALLBACK_VIDEO_ID: 'eOqD2Q5s2M0', // Video dự phòng nếu mọi thứ thất bại
+    REFRESH_INTERVAL: 10 * 60 * 1000 // Tự động cập nhật sau mỗi 10 phút
+};
+
+// ==========================================
+// 2. KHỞI TẠO HỆ THỐNG
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    initCS2TV();
+    loadSchedule();
     
-    // Lấy domain hiện tại để fix lỗi "Từ chối kết nối"
-    const currentDomain = window.location.hostname;
-    
-    // Nếu chạy file cục bộ (không có domain), mặc định dùng localhost để test
-    const parentParam = currentDomain || "localhost";
+    // Thiết lập vòng lặp cập nhật tự động
+    setInterval(() => {
+        console.log("Đang cập nhật dữ liệu mới...");
+        initCS2TV();
+        loadSchedule();
+    }, CONFIG.REFRESH_INTERVAL);
+});
+
+// ==========================================
+// 3. XỬ LÝ TV (TWITCH & YOUTUBE)
+// ==========================================
+async function initCS2TV() {
+    const player = document.getElementById('video-player');
+    const title = document.getElementById('tv-title');
+    const currentDomain = window.location.hostname || "localhost";
+
+    // Hiển thị trạng thái đang tải
+    title.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang dò sóng...`;
 
     try {
-        // Gọi API PandaScore lấy trận đang LIVE
-        const response = await fetch(`https://api.pandascore.co/csgo/matches/running?token=${PANDASCORE_TOKEN}`);
-        const liveMatches = await response.json();
+        // ƯU TIÊN 1: Tìm trận đấu CS2 đang LIVE thật sự
+        const response = await fetch(`https://api.pandascore.co/csgo/matches/running?token=${CONFIG.PANDASCORE_TOKEN}`);
+        const matches = await response.json();
 
-        if (liveMatches && liveMatches.length > 0) {
-            // Ưu tiên trận có link Twitch
-            const match = liveMatches[0];
-            const streamUrl = match.live_url; 
-
-            if (streamUrl && streamUrl.includes('twitch.tv')) {
-                const channelName = streamUrl.split('/').pop();
-                tvTitle.innerHTML = `<span class="live-dot"></span> ĐANG LIVE: ${match.name}`;
+        if (matches && matches.length > 0) {
+            const match = matches[0];
+            if (match.live_url && match.live_url.includes('twitch.tv')) {
+                const channel = match.live_url.split('/').pop();
                 
-                playerContainer.innerHTML = `
+                title.innerHTML = `<span class="live-dot"></span> TRỰC TIẾP: ${match.name}`;
+                player.innerHTML = `
                     <iframe 
-                        src="https://player.twitch.tv/?channel=${channelName}&parent=${parentParam}&autoplay=true&muted=false" 
-                        allowfullscreen="true">
+                        src="https://player.twitch.tv/?channel=${channel}&parent=${currentDomain}&autoplay=true&muted=false" 
+                        allowfullscreen="true"
+                        style="width:100%; height:100%; border:none;">
                     </iframe>`;
                 return;
             }
         }
-        
-        // Nếu không có trận Live, phát YouTube Highlights
-        playYouTube(playerContainer, tvTitle);
+
+        // ƯU TIÊN 2: Nếu không có Live, dùng YouTube API tìm Highlight mới nhất trong ngày
+        await loadYouTubeHighlight(player, title);
 
     } catch (error) {
-        console.error("Lỗi API, chuyển sang YouTube:", error);
-        playYouTube(playerContainer, tvTitle);
+        console.error("Lỗi hệ thống TV:", error);
+        playFallback(player, title);
     }
 }
 
-function playYouTube(container, title) {
-    title.innerHTML = `<i class="fa-solid fa-video"></i> CS2 Pro Highlights 24/7`;
-    container.innerHTML = `
-        <iframe 
-            src="https://www.youtube.com/embed/videoseries?list=${YT_FALLBACK_PLAYLIST}&autoplay=1&mute=1" 
-            allow="autoplay; encrypted-media" 
-            allowfullscreen>
-        </iframe>`;
-}
-
-// ==========================================
-// HÀM LẤY LỊCH THI ĐẤU THẬT
-// ==========================================
-async function loadRealMatches() {
-    const container = document.getElementById('matches-list');
-    
+async function loadYouTubeHighlight(player, title) {
     try {
-        const response = await fetch(`https://api.pandascore.co/csgo/matches/upcoming?token=${PANDASCORE_TOKEN}&per_page=6`);
-        const data = await response.json();
+        const query = encodeURIComponent("CS2 highlights pro matches 2024");
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=date&maxResults=1&key=${CONFIG.YOUTUBE_API_KEY}`);
+        const data = await res.json();
 
-        container.innerHTML = data.map(m => `
-            <div class="match-card ${m.status === 'running' ? 'live' : ''}">
-                <div class="league-name">${m.league.name}</div>
-                <div class="match-main">
-                    <div class="team">
-                        <img src="${m.opponents[0]?.opponent.image_url || 'https://via.placeholder.com/40'}" onerror="this.src='https://via.placeholder.com/40'">
-                        <p>${m.opponents[0]?.opponent.name || 'TBD'}</p>
-                    </div>
-                    <div class="vs">VS</div>
-                    <div class="team">
-                        <img src="${m.opponents[1]?.opponent.image_url || 'https://via.placeholder.com/40'}" onerror="this.src='https://via.placeholder.com/40'">
-                        <p>${m.opponents[1]?.opponent.name || 'TBD'}</p>
-                    </div>
-                </div>
-                <div class="match-footer">
-                    ${new Date(m.begin_at).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}
-                </div>
-            </div>
-        `).join('');
-    } catch (e) {
-        container.innerHTML = "<p>Không thể tải lịch đấu. Kiểm tra lại API Token.</p>";
+        if (data.items && data.items.length > 0) {
+            const videoId = data.items[0].id.videoId;
+            title.innerHTML = `<i class="fa-solid fa-fire"></i> CS2 Highlights Mới Nhất`;
+            player.innerHTML = `
+                <iframe 
+                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0" 
+                    allow="autoplay; encrypted-media" 
+                    allowfullscreen
+                    style="width:100%; height:100%; border:none;">
+                </iframe>`;
+        } else {
+            throw new Error("Không tìm thấy video");
+        }
+    } catch (err) {
+        playFallback(player, title);
     }
 }
 
-// Chuyển Tab
+function playFallback(player, title) {
+    title.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Chế độ dự phòng`;
+    player.innerHTML = `<iframe src="https://www.youtube.com/embed/${CONFIG.FALLBACK_VIDEO_ID}?autoplay=1" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
+}
+
+// ==========================================
+// 4. XỬ LÝ LỊCH THI ĐẤU (PANDASCORE)
+// ==========================================
+async function loadSchedule() {
+    const list = document.getElementById('matches-list');
+    if (!list) return;
+
+    try {
+        const res = await fetch(`https://api.pandascore.co/csgo/matches/upcoming?token=${CONFIG.PANDASCORE_TOKEN}&per_page=8&sort=begin_at`);
+        const data = await res.json();
+
+        list.innerHTML = data.map(m => {
+            const time = new Date(m.begin_at).toLocaleString('vi-VN', {
+                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit'
+            });
+            const team1 = m.opponents[0]?.opponent || { name: 'TBD', image_url: 'https://via.placeholder.com/40' };
+            const team2 = m.opponents[1]?.opponent || { name: 'TBD', image_url: 'https://via.placeholder.com/40' };
+
+            return `
+                <div class="match-card">
+                    <div class="league-tag">${m.league.name}</div>
+                    <div class="teams-display">
+                        <div class="team-info">
+                            <img src="${team1.image_url}" alt="${team1.name}">
+                            <span>${team1.name}</span>
+                        </div>
+                        <div class="vs-badge">VS</div>
+                        <div class="team-info">
+                            <img src="${team2.image_url}" alt="${team2.name}">
+                            <span>${team2.name}</span>
+                        </div>
+                    </div>
+                    <div class="match-time"><i class="fa-regular fa-clock"></i> ${time}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = `<p style="color:#666">Không thể tải lịch thi đấu lúc này.</p>`;
+    }
+}
+
+// ==========================================
+// 5. TIỆN ÍCH UI
+// ==========================================
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    
     document.getElementById(tabId).classList.add('active');
     event.currentTarget.classList.add('active');
 }
-
-// Chạy khi web load xong
-window.onload = () => {
-    initAutoTV();
-    loadRealMatches();
-};
